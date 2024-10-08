@@ -1,0 +1,54 @@
+[
+  {
+    "key": "UserName",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "UserName",
+      "description": "The UserName to connect to the API",
+      "required": true
+    }
+  },
+  {
+    "key": "Password",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "type": "password",
+      "label": "Password",
+      "description": "The Password to connect to the API",
+      "required": true
+    }
+  },
+  {
+    "key": "ClientId",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "ClientId",
+      "description": "The ClientId to connect to the API",
+      "required": true
+    }
+  },
+  {
+    "key": "ClientSecret",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "type": "password",
+      "label": "ClientSecret",
+      "description": "The ClientSecret to connect to the API",
+      "required": true
+    }
+  },
+  {
+    "key": "BaseUrl",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "BaseUrl",
+      "description": "The URL to the API.",
+      "required": true
+    }
+  }
+]
