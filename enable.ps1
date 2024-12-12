@@ -75,7 +75,7 @@ try {
             ContentType = 'application/x-www-form-urlencoded'
         }
         Body = @{
-            id = $correlationValue
+            id = $ctionContext.References.Account
         }
     }
     $correlatedAccount = Invoke-RestMethod @splatGetUserParams
