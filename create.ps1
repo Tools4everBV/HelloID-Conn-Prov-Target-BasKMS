@@ -50,7 +50,7 @@ try {
 
     # Retrieve access token
     $splatParams = @{
-        Uri         = $actionContext.Configuration.TokenUrl
+        Uri         = "$($actionContext.Configuration.BaseUrl)/businessOauth/bas/v2/token"
         ContentType = 'application/x-www-form-urlencoded'
         Method      = 'POST'
         Body = @{
@@ -65,7 +65,7 @@ try {
 
     # Validate correlation configuration
     if ($actionContext.CorrelationConfiguration.Enabled) {
-        $correlationField = $actionContext.CorrelationConfiguration.PersonField
+        $correlationField = $actionContext.CorrelationConfiguration.AccountField
         $correlationValue = $actionContext.CorrelationConfiguration.PersonFieldValue
 
         if ([string]::IsNullOrEmpty($($correlationField))) {
@@ -77,7 +77,7 @@ try {
 
         # Determine if a user needs to be [created] or [correlated]
         $splatGetUserParams = @{
-            Uri     = "$($actionContext.Configuration.BaseUrl)/kms/employee/show"
+            Uri     = "$($actionContext.Configuration.BaseUrl)/businessRest/bas/kms/employee/show"
             Method  = 'POST'
             Headers = @{
                 Authorization = "Bearer $($responseToken.access_token)"
@@ -109,7 +109,7 @@ try {
                 Write-Information 'Creating and correlating BasKMS account'
                 $actionContext.Data | Add-Member -MemberType NoteProperty -Name 'active' -Value $false
                 $splatCreateParams = @{
-                    Uri    = "$($actionContext.Configuration.BaseUrl)/kms/employee/create"
+                    Uri    = "$($actionContext.Configuration.BaseUrl)/businessRest/bas/kms/employee/create"
                     Method = 'POST'
                     Headers = @{
                         Authorization = "Bearer $($responseToken.access_token)"

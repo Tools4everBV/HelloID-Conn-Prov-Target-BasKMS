@@ -86,7 +86,6 @@ The following settings are required to connect to the API.
 | ClientSecret | The ClientSecret to connect to the API | Yes       |
 | UserName     | The UserName to connect to the API     | Yes       |
 | Password     | The Password to connect to the API     | Yes       |
-| TokenUrl     | The URL to retrieve a token            | Yes       |
 | BaseUrl      | The base URL to the API                | Yes       |
 
 ### Prerequisites

@@ -52,7 +52,7 @@ try {
 
     # Retrieve access token
     $splatParams = @{
-        Uri         = $actionContext.Configuration.TokenUrl
+        Uri         = "$($actionContext.Configuration.BaseUrl)/businessOauth/bas/v2/token"
         ContentType = 'application/x-www-form-urlencoded'
         Method      = 'POST'
         Body = @{
@@ -67,7 +67,7 @@ try {
 
     Write-Information 'Verifying if a BasKMS account exists'
     $splatGetUserParams = @{
-        Uri     = "$($actionContext.Configuration.BaseUrl)/kms/employee/show"
+        Uri     = "$($actionContext.Configuration.BaseUrl)/businessRest/bas/kms/employee/show"
         Method  = 'POST'
         Headers = @{
             Authorization = "Bearer $($responseToken.access_token)"
@@ -75,7 +75,7 @@ try {
             ContentType = 'application/x-www-form-urlencoded'
         }
         Body = @{
-            id = $correlationValue
+            id = $actionContext.References.Account
         }
     }
     $correlatedAccount = Invoke-RestMethod @splatGetUserParams
@@ -97,7 +97,7 @@ try {
             if (-not($actionContext.DryRun -eq $true)) {
                 Write-Information "Disabling BasKMS account with accountReference: [$($actionContext.References.Account)]"
                 $splatDisableUserParams = @{
-                    Uri     = "$($actionContext.Configuration.BaseUrl)/kms/employee/update"
+                    Uri     = "$($actionContext.Configuration.BaseUrl)/businessRest/bas/kms/employee/update"
                     Method  = 'POST'
                     Headers = @{
                         Authorization = "Bearer $($responseToken.access_token)"
