@@ -97,7 +97,7 @@ The following settings are required to connect to the API.
 The `referenceId` contains the `externalId` of the person. This field is used within the _create_ lifecycle action to determine if an account exists and is part of the JSON payload to the target application.
 
 > [!IMPORTANT]
-> The referenceId can only be filled with the API or with a import (not in the GUI).
+> The referenceId can only be filled with the API or with an import (not in the GUI).
 
 #### Error handling
 
@@ -105,13 +105,13 @@ Most of the errors in BasKMS are returned in the response. For this reason, the 
 
 #### Social security number (BSN)
 
-The data returned by _KMS_ also could contain the _social security number_ or _BSN_. Therefore, within the connector, both the output from `$correlatedAccount` and `$createdAccount` are filtered to only contain the fields specified in the field mapping or `$actionContext.Data` with the addition of the `id`.
+The data returned by _KMS_ also could also contain the _social security number_ or _BSN_. Therefore, within the connector, both the output from `$correlatedAccount` and `$createdAccount` are filtered to only contain the fields specified in the field mapping or `$actionContext.Data` with the addition of the `id`.
 
 #### DepartmentName
-The fieldmapping contains a field `departmentName` this field is returned by BasKMS as `department.name` this is hardcoded to `departmentName` in the update script.
+The field mapping contains a field `departmentName`, which is returned by BasKMS as `department.name`. In the update script, this is hardcoded to `departmentName`.
 
 > [!IMPORTANT]
-> If `departmentName` doesn't exist BasKMS will make the field  `department` empty. BasKMS won't return an error.
+> If `departmentName` is not present, BasKMS will set the `department` field to empty without returning an error.
 
 ## Setup the connector
 
