@@ -173,7 +173,7 @@
     },
     {
       "Name": "id",
-      "Description": "[required] account refference",
+      "Description": "[required] account reference",
       "Type": "Text",
       "MappingActions": [
         {
