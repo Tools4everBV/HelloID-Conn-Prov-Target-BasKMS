@@ -4,7 +4,7 @@
 > This repository contains the connector and configuration code only. The implementer is responsible to acquire the connection details such as username, password, certificate, etc. You might even need to sign a contract or agreement with the supplier before implementing this connector. Please contact the client's application manager to coordinate the connector requirements.
 
 <p align="center">
-  <img src="https://www.basbedrijfskleding.nl/wp-content/themes/atention/assets/img/logo.png">
+  <img src="https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-BasKMS/blob/main/Logo.png?raw=true">
 </p>
 
 ## Table of contents
@@ -22,7 +22,7 @@
       - [`referenceId`](#referenceid)
       - [Error handling](#error-handling)
       - [Social security number (BSN)](#social-security-number-bsn)
-      - [UTF-8 encoding](#utf-8-encoding)
+      - [DepartmentName](#departmentname)
   - [Setup the connector](#setup-the-connector)
   - [Getting help](#getting-help)
   - [HelloID docs](#helloid-docs)
@@ -31,11 +31,11 @@
 
 _HelloID-Conn-Prov-Target-BasKMS_ is a _target_ connector. _BasKMS_ provides a set of REST API's that allow you to programmatically interact with its data. The HelloID connector uses the API endpoints listed in the table below.
 
-| Endpoint | Description |
-| -------- | ----------- |
-| /kms/employee/show        | Retrieve a single employee by `referenceId`.             |
-| /kms/employee/create        | Create a new employee.             |
-| /kms/employee/update        | Update an employee.           |
+| Endpoint             | Description                                  |
+| -------------------- | -------------------------------------------- |
+| /kms/employee/show   | Retrieve a single employee by `referenceId`. |
+| /kms/employee/create | Create a new employee.                       |
+| /kms/employee/update | Update an employee.                          |
 
 The following lifecycle actions are available:
 
@@ -67,7 +67,7 @@ To properly setup the correlation:
     | ------------------------- | --------------------------------- |
     | Enable correlation        | `True`                            |
     | Person correlation field  | `PersonContext.Person.ExternalId` |
-    | Account correlation field | `-`                               |
+    | Account correlation field | `referenceId`                     |
 
 > [!TIP]
 > _For more information on correlation, please refer to our correlation [documentation](https://docs.helloid.com/en/provisioning/target-systems/powershell-v2-target-systems/correlation.html) pages_.
@@ -96,21 +96,22 @@ The following settings are required to connect to the API.
 
 The `referenceId` contains the `externalId` of the person. This field is used within the _create_ lifecycle action to determine if an account exists and is part of the JSON payload to the target application.
 
+> [!IMPORTANT]
+> The referenceId can only be filled with the API or with a import (not in the GUI).
+
 #### Error handling
 
-At this stage, the error handling functionality is still using the default function. This is because the error-handling logic could not be fully tested in all scenarios during the initial development phase.
-
-We recommend that error handling be revisited and thoroughly tested in various edge cases (e.g., invalid data formats, missing required fields, system failures, etc.) once more comprehensive tests can be conducted.
-
-For now, the default behavior will capture basic issues, but it may not provide customized or detailed feedback.
+Most of the errors in BasKMS are returned in the response. For this reason, the code will check the response if it contains an error.
 
 #### Social security number (BSN)
 
-The data returned by _KMS_ also contains the _social security number_ or _BSN_. Therefore, within the connector, both the output from `$correlatedAccount` and `$createdAccount` are filtered to only contain the fields specified in the field mapping or `$actionContext.Data` with the addition of the `id`.
+The data returned by _KMS_ also could contain the _social security number_ or _BSN_. Therefore, within the connector, both the output from `$correlatedAccount` and `$createdAccount` are filtered to only contain the fields specified in the field mapping or `$actionContext.Data` with the addition of the `id`.
 
-#### UTF-8 encoding
+#### DepartmentName
+The fieldmapping contains a field `departmentName` this field is returned by BasKMS as `department.name` this is hardcoded to `departmentName` in the update script.
 
-Before final deployment, comprehensive testing is required to validate that all data inputs and outputs are correctly encoded in UTF-8. This will include verifying that special characters and non-Latin scripts are accurately processed and displayed.
+> [!IMPORTANT]
+> If `departmentName` doesn't exist BasKMS will make the field  `department` empty. BasKMS won't return an error.
 
 ## Setup the connector
 

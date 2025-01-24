@@ -23,7 +23,8 @@ function Resolve-BasKMSError {
         }
         if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
             $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             if ($null -ne $ErrorObject.Exception.Response) {
                 $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
                 if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
@@ -36,7 +37,8 @@ function Resolve-BasKMSError {
             # Make sure to inspect the error result object and add only the error message as a FriendlyMessage.
             # $httpErrorObj.FriendlyMessage = $errorDetailsObject.message
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails # Temporarily assignment
-        } catch {
+        }
+        catch {
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
@@ -53,7 +55,7 @@ try {
         Uri         = "$($actionContext.Configuration.BaseUrl)/businessOauth/bas/v2/token"
         ContentType = 'application/x-www-form-urlencoded'
         Method      = 'POST'
-        Body = @{
+        Body        = @{
             client_id     = $actionContext.Configuration.ClientId
             client_secret = $actionContext.Configuration.ClientSecret
             username      = $actionContext.Configuration.UserName
@@ -81,24 +83,28 @@ try {
             Method  = 'POST'
             Headers = @{
                 Authorization = "Bearer $($responseToken.access_token)"
-                Accept = 'application/json'
-                ContentType = 'application/x-www-form-urlencoded'
+                Accept        = 'application/json'
+                ContentType   = 'application/x-www-form-urlencoded'
             }
-            Body = @{
+            Body    = @{
                 referenceId = $correlationValue
             }
         }
         $correlatedAccount = Invoke-RestMethod @splatGetUserParams
-        if (-not ($correlatedAccount.error)){
-            $propertyNames = $actionContext.Data.PSObject.Properties.Name + 'id'
+        $propertyNames = $actionContext.Data.PSObject.Properties.Name
+        if (-not ($correlatedAccount.error)) {
             $filteredCorrelatedAccount = $correlatedAccount | Select-Object -Property $propertyNames
             $correlatedAccount = $null
+        }
+        elseif ($correlatedAccount.error -ne 'Employee not found') {
+            throw $($correlatedAccount.error)
         }
     }
 
     if ($null -ne $filteredCorrelatedAccount) {
         $action = 'CorrelateAccount'
-    } else {
+    }
+    else {
         $action = 'CreateAccount'
     }
 
@@ -107,22 +113,28 @@ try {
         'CreateAccount' {
             if (-not($actionContext.DryRun -eq $true)) {
                 Write-Information 'Creating and correlating BasKMS account'
-                $actionContext.Data | Add-Member -MemberType NoteProperty -Name 'active' -Value $false
+                $actionContext.Data | Add-Member -MemberType NoteProperty -Name 'active' -Value 0
                 $splatCreateParams = @{
-                    Uri    = "$($actionContext.Configuration.BaseUrl)/businessRest/bas/kms/employee/create"
-                    Method = 'POST'
-                    Headers = @{
+                    Uri         = "$($actionContext.Configuration.BaseUrl)/businessRest/bas/kms/employee/create"
+                    Method      = 'POST'
+                    Headers     = @{
                         Authorization = "Bearer $($responseToken.access_token)"
                     }
                     Body        = $actionContext.Data | ConvertTo-Json
                     ContentType = 'application/json'
                 }
                 $createdAccount = Invoke-RestMethod @splatCreateParams
-                $propertyNames = $actionContext.Data.PSObject.Properties.Name + 'id'
-                $filteredCreatedAccount = $createdAccount | Select-Object -Property $propertyNames
-                $outputContext.Data = $filteredCreatedAccount
-                $outputContext.AccountReference = $filteredCreatedAccount.id
-            } else {
+                if (-not ($createdAccount.error)) {
+                    $filteredCreatedAccount = $createdAccount | Select-Object -Property $propertyNames
+                    $filteredCreatedAccount.DepartmentName = $createdAccount.Department.Name
+                    $outputContext.Data = $filteredCreatedAccount
+                    $outputContext.AccountReference = $filteredCreatedAccount.id
+                }
+                else {
+                    throw $($createdAccount.error)
+                }
+            }
+            else {
                 Write-Information '[DryRun] Create and correlate BasKMS account, will be executed during enforcement'
             }
             $auditLogMessage = "Create account was successful. AccountReference is: [$($outputContext.AccountReference)]"
@@ -145,7 +157,8 @@ try {
             Message = $auditLogMessage
             IsError = $false
         })
-} catch {
+}
+catch {
     $outputContext.success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
@@ -153,7 +166,8 @@ try {
         $errorObj = Resolve-BasKMSError -ErrorObject $ex
         $auditMessage = "Could not create or correlate BasKMS account. Error: $($errorObj.FriendlyMessage)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
-    } else {
+    }
+    else {
         $auditMessage = "Could not create or correlate BasKMS account. Error: $($ex.Exception.Message)"
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }

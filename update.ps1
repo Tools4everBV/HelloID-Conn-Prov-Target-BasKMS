@@ -23,7 +23,8 @@ function Resolve-BasKMSError {
         }
         if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
             $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             if ($null -ne $ErrorObject.Exception.Response) {
                 $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
                 if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
@@ -36,7 +37,8 @@ function Resolve-BasKMSError {
             # Make sure to inspect the error result object and add only the error message as a FriendlyMessage.
             # $httpErrorObj.FriendlyMessage = $errorDetailsObject.message
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails # Temporarily assignment
-        } catch {
+        }
+        catch {
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
@@ -55,7 +57,7 @@ try {
         Uri         = "$($actionContext.Configuration.BaseUrl)/businessOauth/bas/v2/token"
         ContentType = 'application/x-www-form-urlencoded'
         Method      = 'POST'
-        Body = @{
+        Body        = @{
             client_id     = $actionContext.Configuration.ClientId
             client_secret = $actionContext.Configuration.ClientSecret
             username      = $actionContext.Configuration.UserName
@@ -71,39 +73,53 @@ try {
         Method  = 'POST'
         Headers = @{
             Authorization = "Bearer $($responseToken.access_token)"
-            Accept = 'application/json'
-            ContentType = 'application/x-www-form-urlencoded'
+            Accept        = 'application/json'
+            ContentType   = 'application/x-www-form-urlencoded'
         }
-        Body = @{
+        Body    = @{
             id = $actionContext.References.Account
         }
     }
     $correlatedAccount = Invoke-RestMethod @splatGetUserParams
-    $propertyNames = $actionContext.Data.PSObject.Properties.Name + 'id'
-    $filteredCorrelatedAccount = $correlatedAccount | Select-Object -Property $propertyNames
-    $correlatedAccount = $null
-    $outputContext.PreviousData = $filteredCorrelatedAccount
+    if (-not ($correlatedAccount.error)) {
+        $propertyNames = $actionContext.Data.PSObject.Properties.Name
+        $filteredCorrelatedAccount = $correlatedAccount | Select-Object -Property $propertyNames
+        $filteredCorrelatedAccount.DepartmentName = $correlatedAccount.Department.Name
+        $correlatedAccount = $null
+        $outputContext.PreviousData = $filteredCorrelatedAccount
+    }
+    elseif ($correlatedAccount.error -eq 'Employee not found') {
+        $filteredCorrelatedAccount = $null
+    }
+    else {
+        throw $($correlatedAccount.error)
+    }
 
     # Always compare the account against the current account in target system
     if ($null -ne $filteredCorrelatedAccount) {
-        $splatCompareProperties = @{
-            ReferenceObject  = @($filteredCorrelatedAccount.PSObject.Properties)
-            DifferenceObject = @($actionContext.Data.PSObject.Properties)
-        }
-        $propertiesChanged = Compare-Object @splatCompareProperties -PassThru | Where-Object { $_.SideIndicator -eq '=>' }
+        $normalizedReference = @($filteredCorrelatedAccount.PSObject.Properties | ForEach-Object {
+                [PSCustomObject]@{ Name = $_.Name; Value = if ($null -eq $_.Value) { "" } else { $_.Value } }
+            })
+ 
+        $account = $actionContext.Data | Select-Object * -ExcludeProperty id
+        $normalizedDifference = @($account.PSObject.Properties | ForEach-Object {
+                [PSCustomObject]@{ Name = $_.Name; Value = if ($null -eq $_.Value) { "" } else { $_.Value } } 
+            })
+ 
+        $propertiesChanged = Compare-Object -ReferenceObject $normalizedReference -DifferenceObject $normalizedDifference -Property Name, Value -PassThru |  Where-Object { $_.SideIndicator -eq '=>' }
         if ($propertiesChanged) {
             $changedPropertiesHashtable = @{}
-            $changedPropertiesHashTable['id'] = $actionContext.References.Account
+            $changedPropertiesHashtable['id'] = $actionContext.References.Account
             foreach ($property in $propertiesChanged) {
-                $propertyName = $property.Name
-                $propertyValue = $property.Value
-                $changedPropertiesHashtable[$propertyName] = $propertyValue
+                $changedPropertiesHashtable[$property.Name] = $property.Value
             }
             $action = 'UpdateAccount'
-        } else {
+        }
+        else {
             $action = 'NoChanges'
         }
-    } else {
+    }
+    else {
         $action = 'NotFound'
     }
 
@@ -113,22 +129,27 @@ try {
             Write-Information "Account property(s) required to update: $($propertiesChanged.Name -join ', ')"
             if (-not($actionContext.DryRun -eq $true)) {
                 Write-Information "Updating BasKMS account with accountReference: [$($actionContext.References.Account)]"
-                $changedPropertiesHashtable['referenceId'] = $actionContext.References.Account
                 $splatUpdateUserParams = @{
                     Uri     = "$($actionContext.Configuration.BaseUrl)/businessRest/bas/kms/employee/update"
                     Method  = 'POST'
                     Headers = @{
                         Authorization = "Bearer $($responseToken.access_token)"
-                        Accept = 'application/json'
-                        ContentType = 'application/x-www-form-urlencoded'
+                        Accept        = 'application/json'
+                        ContentType   = 'application/x-www-form-urlencoded'
                     }
-                    Body = $changedPropertiesHashtable
+                    Body    = $changedPropertiesHashtable
                 }
-                $null = Invoke-RestMethod @splatUpdateUserParams
-            } else {
+                
+                $response = Invoke-RestMethod @splatUpdateUserParams
+                if ($response.error) {
+                    throw $($response.error)
+                }
+            }
+            else {
                 Write-Information "[DryRun] Update BasKMS account with accountReference: [$($actionContext.References.Account)], will be executed during enforcement"
             }
 
+            $outputContext.data.id = $filteredCorrelatedAccount.id
             $outputContext.Success = $true
             $outputContext.AuditLogs.Add([PSCustomObject]@{
                     Message = "Update account was successful, Account property(s) updated: [$($propertiesChanged.name -join ',')]"
@@ -139,7 +160,7 @@ try {
 
         'NoChanges' {
             Write-Information "No changes to BasKMS account with accountReference: [$($actionContext.References.Account)]"
-
+            $outputContext.data.id = $filteredCorrelatedAccount.id
             $outputContext.Success = $true
             $outputContext.AuditLogs.Add([PSCustomObject]@{
                     Message = 'No changes will be made to the account during enforcement'
@@ -158,15 +179,17 @@ try {
             break
         }
     }
-} catch {
-    $outputContext.Success  = $false
+}
+catch {
+    $outputContext.Success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-BasKMSError -ErrorObject $ex
         $auditMessage = "Could not update BasKMS account. Error: $($errorObj.FriendlyMessage)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
-    } else {
+    }
+    else {
         $auditMessage = "Could not update BasKMS account. Error: $($ex.Exception.Message)"
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
